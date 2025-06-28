@@ -13,60 +13,46 @@ def main():
     import cv2
     import numpy as np
     from PIL import Image
+    from transformers import (
+        AutoProcessor,
+        AutoModelForVision2Seq,
+    )  # Adjust import if needed
+    import torch
+
+    # Load model and processor once
+    @st.cache_resource(show_spinner="Loading OCR model...")
+    def load_model():
+        processor = AutoProcessor.from_pretrained(
+            "raka-pratama/Llama-3.2-Vision-handwritten-ocr"
+        )
+        model = AutoModelForVision2Seq.from_pretrained(
+            "raka-pratama/Llama-3.2-Vision-handwritten-ocr"
+        )
+        return processor, model
+
+    processor, model = load_model()
 
     # --- Placeholder Model Function ---
     # This is where you will integrate your actual machine learning model.
     # For now, it just draws a sample bounding box and returns dummy text.
     def detect_handwritten_text(image: np.ndarray) -> tuple[np.ndarray, str]:
         """
-        A placeholder function to simulate handwritten text detection.
-
-        Args:
-            image: A NumPy array representing the input image from the webcam.
-
-        Returns:
-            A tuple containing:
-            - The image with a bounding box drawn on it (as a NumPy array).
-            - A dummy string for the detected text.
+        Use the Llama-3.2-Vision-handwritten-ocr model to detect handwritten text.
         """
-        # Create a copy of the image to draw on
+        # Convert OpenCV image (BGR) to PIL Image (RGB)
+        pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+        # Preprocess image for the model
+        inputs = processor(images=pil_image, return_tensors="pt")
+
+        # Run inference
+        with torch.no_grad():
+            outputs = model.generate(**inputs)
+            detected_text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
+
+        # Optionally, draw a box or highlight (if your model returns bounding boxes, add here)
         processed_image = image.copy()
-        detected_text = "Placeholder: Hello World!"
-
-        # --- MODEL INTEGRATION POINT ---
-        # 1. Pre-process the 'image' (e.g., resize, normalize, grayscale) as required by your model.
-        # 2. Pass the pre-processed image to your model for inference.
-        #    predictions = your_model.predict(processed_image)
-        # 3. Process the model's output to get bounding boxes and recognized text.
-        #    For example, let's assume your model outputs a list of tuples,
-        #    where each tuple is (box, text).
-        #
-        # Example of what you might do with model output:
-        # for (box, text) in predictions:
-        #     (x, y, w, h) = box
-        #     cv2.rectangle(processed_image, (x, y), (x + w, y + h), (36, 255, 12), 2)
-        #     cv2.putText(processed_image, text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (36, 255, 12), 2)
-        #     detected_text += text + " "
-        # ---------------------------------
-
-        # For this boilerplate, we'll just draw a static, sample box.
-        # This helps visualize where the output would be.
-        h, w, _ = processed_image.shape
-        start_point = (int(w * 0.2), int(h * 0.3))  # Top-left corner
-        end_point = (int(w * 0.8), int(h * 0.7))  # Bottom-right corner
-        color_bgr = (36, 255, 12)  # A bright green color
-        thickness = 2
-
-        cv2.rectangle(processed_image, start_point, end_point, color_bgr, thickness)
-        cv2.putText(
-            processed_image,
-            "Your detected text would appear here",
-            (start_point[0], start_point[1] - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            color_bgr,
-            2,
-        )
+        # If bounding boxes are available, draw them here
 
         return processed_image, detected_text.strip()
 
@@ -111,7 +97,9 @@ def main():
 
         st.subheader("Original Captured Image")
         st.image(
-            rgb_image, caption="Image captured from webcam.", use_container_width=True  # use_column_width is deprecated
+            rgb_image,
+            caption="Image captured from webcam.",
+            use_container_width=True,  # use_column_width is deprecated
         )
 
         with st.spinner("Detecting text..."):

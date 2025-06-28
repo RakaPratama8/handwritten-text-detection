@@ -8,4 +8,6 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pillow>=11.2.1",
     "streamlit>=1.46.1",
+    "torch>=2.7.1",
+    "transformers>=4.53.0",
 ]
